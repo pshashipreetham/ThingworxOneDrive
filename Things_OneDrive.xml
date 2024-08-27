@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Entities
+ majorVersion="9"
+ minorVersion="6"
+ universal="password">
+    <Things>
+        <Thing
+         description=""
+         documentationContent=""
+         effectiveThingPackage="ConfiguredThing"
+         enabled="true"
+         homeMashup=""
+         identifier=""
+         inheritedValueStream=""
+         name="OneDrive"
+         projectName="OneDrive"
+         published="false"
+         tags=""
+         thingTemplate="OneDrive"
+         valueStream="">
+            <avatar></avatar>
+            <DesignTimePermissions>
+                <Create></Create>
+                <Read></Read>
+                <Update></Update>
+                <Delete></Delete>
+                <Metadata></Metadata>
+            </DesignTimePermissions>
+            <RunTimePermissions></RunTimePermissions>
+            <VisibilityPermissions>
+                <Visibility></Visibility>
+            </VisibilityPermissions>
+            <ConfigurationTableDefinitions></ConfigurationTableDefinitions>
+            <ConfigurationTables></ConfigurationTables>
+            <ThingShape>
+                <PropertyDefinitions></PropertyDefinitions>
+                <ServiceDefinitions>
+                    <ServiceDefinition
+                     aspect.isAsync="false"
+                     category=""
+                     description=""
+                     isAllowOverride="false"
+                     isLocalOnly="false"
+                     isOpen="false"
+                     isPrivate="false"
+                     name="generateAccessToken">
+                        <ResultType
+                         baseType="STRING"
+                         description=""
+                         name="result"
+                         ordinal="0"></ResultType>
+                        <ParameterDefinitions></ParameterDefinitions>
+                    </ServiceDefinition>
+                    <ServiceDefinition
+                     aspect.isAsync="false"
+                     category=""
+                     description=""
+                     isAllowOverride="false"
+                     isLocalOnly="false"
+                     isOpen="false"
+                     isPrivate="false"
+                     name="uploadFileToOneDrive">
+                        <ResultType
+                         baseType="STRING"
+                         description=""
+                         name="result"
+                         ordinal="0"></ResultType>
+                        <ParameterDefinitions></ParameterDefinitions>
+                    </ServiceDefinition>
+                </ServiceDefinitions>
+                <EventDefinitions></EventDefinitions>
+                <ServiceMappings></ServiceMappings>
+                <ServiceImplementations>
+                    <ServiceImplementation
+                     description=""
+                     handlerName="Script"
+                     name="generateAccessToken">
+                        <ConfigurationTables>
+                            <ConfigurationTable
+                             dataShapeName=""
+                             description=""
+                             isMultiRow="false"
+                             name="Script"
+                             ordinal="0">
+                                <DataShape>
+                                    <FieldDefinitions>
+                                        <FieldDefinition
+                                         baseType="STRING"
+                                         description="code"
+                                         name="code"
+                                         ordinal="0"></FieldDefinition>
+                                    </FieldDefinitions>
+                                </DataShape>
+                                <Rows>
+                                    <Row>
+                                        <code>
+                                        <![CDATA[
+                                        try {
+                                        	/* ************ Initializing Credentials ************ */
+                                        	let BodyContent = "grant_type=client_credentials&client_secret=" + me.SecretValue + "&client_id=" + me.ClientId + "&scope=https://graph.microsoft.com/.default";
+                                        
+                                        	/* ************ Invoking API ************ */
+                                        	let JSONResponse = Resources["ContentLoaderFunctions"].PostText({
+                                        		headers: {
+                                        			"Content-Type": "application/x-www-form-urlencoded",
+                                        			"Accept": "application/json"
+                                        		} /* JSON */ ,
+                                        		url: "https://login.microsoftonline.com/da2afad5-bdee-45e8-96ae-0cabbda161f0/oauth2/v2.0/token" /* STRING */ ,
+                                        		content: BodyContent /* JSON */
+                                        	});
+                                        
+                                        	/* ************ Updating AccessToken Property ************ */
+                                            let obj = JSONResponse.split(",");
+                                           	let extractToken =  obj[3].split(":");
+                                            let token = extractToken[1].split("}");
+                                            token = token[0].replace(/"/g, '');
+                                            me.AccessToken = token;
+                                        	logger.error(token[0].replace(/"/g, ''));
+                                        	result = token;
+                                        
+                                        } catch (error) {
+                                        
+                                        	logger.warn("ThingName :: " + me.name + " || ServiceName :: GeneratingAccessToken || Error :: " + error + "at Line Number :: " + error.lineNumber);
+                                        
+                                        }
+                                        ]]>
+                                        </code>
+                                    </Row>
+                                </Rows>
+                            </ConfigurationTable>
+                        </ConfigurationTables>
+                    </ServiceImplementation>
+                    <ServiceImplementation
+                     description=""
+                     handlerName="Script"
+                     name="uploadFileToOneDrive">
+                        <ConfigurationTables>
+                            <ConfigurationTable
+                             dataShapeName=""
+                             description=""
+                             isMultiRow="false"
+                             name="Script"
+                             ordinal="0">
+                                <DataShape>
+                                    <FieldDefinitions>
+                                        <FieldDefinition
+                                         baseType="STRING"
+                                         description="code"
+                                         name="code"
+                                         ordinal="0"></FieldDefinition>
+                                    </FieldDefinitions>
+                                </DataShape>
+                                <Rows>
+                                    <Row>
+                                        <code>
+                                        <![CDATA[
+                                        /* ********** Generating Token ************* */
+                                        me.generateAccessToken();
+                                        
+                                        /* ********** Binary Document ************* */
+                                        let binaryContent = Things["SystemRepository"].LoadBinary({
+                                        	path: "/sample.pdf" /* STRING */
+                                        });
+                                        
+                                        /* ********** Header Configuration ************* */
+                                        me.headers = {
+                                        	"Authorization": "Bearer " + me.AccessToken
+                                        };
+                                        
+                                        /* ********** Variable Declaration ************* */
+                                        me.fileName = "/productDetails.pdf";
+                                        
+                                        var url = "https://graph.microsoft.com/v1.0/users/"+me.driveName+"/drive/items/root:/"+me.folderName+me.fileName;
+                                        
+                                        
+                                        /* ********** Uploading Binary Document ************* */
+                                         Resources["ContentLoaderFunctions"].PutBinary({
+                                        	proxyScheme: "https" /* STRING */,
+                                        	headers: me.headers /* JSON */,
+                                        	ignoreSSLErrors: true /* BOOLEAN */,
+                                        	url: url+":/content" /* STRING */,
+                                        	content: binaryContent /* BLOB */
+                                        });
+                                        
+                                        /* ********** Binary Document Details ************* */
+                                        let uploadedFileDetails = Resources["ContentLoaderFunctions"].GetJSON({
+                                        	proxyScheme: "https" /* STRING */,
+                                        	headers: me.headers /* JSON */,
+                                        	ignoreSSLErrors: true /* BOOLEAN */,
+                                        	url: url /* STRING */
+                                        });
+                                        
+                                        if (fileName.replace("/", "") == uploadedFileDetails.name) {
+                                        	result = "Document Uploaded Successfully";
+                                        } else {
+                                        	result = "Document Not Uploaded Successfully";
+                                        }
+                                        ]]>
+                                        </code>
+                                    </Row>
+                                </Rows>
+                            </ConfigurationTable>
+                        </ConfigurationTables>
+                    </ServiceImplementation>
+                </ServiceImplementations>
+                <Subscriptions></Subscriptions>
+            </ThingShape>
+            <PropertyBindings></PropertyBindings>
+            <RemotePropertyBindings></RemotePropertyBindings>
+            <RemoteServiceBindings></RemoteServiceBindings>
+            <RemoteEventBindings></RemoteEventBindings>
+            <AlertConfigurations></AlertConfigurations>
+            <ImplementedShapes></ImplementedShapes>
+            <ThingProperties>
+                <fileName>
+                    <Value>
+                    <![CDATA[
+                    /productDetails.pdf
+                    ]]>
+                    </Value>
+                    <Timestamp>2024-08-27T11:37:25.867Z</Timestamp>
+                    <Quality>GOOD</Quality>
+                </fileName>
+                <TenantId>
+                    <Value>
+                    <![CDATA[
+                    da2afad5-bdee-45e8-96ae-0cabbda161f0
+                    ]]>
+                    </Value>
+                    <Timestamp>1970-01-01T00:00:00.000Z</Timestamp>
+                    <Quality>UNKNOWN</Quality>
+                </TenantId>
+                <AccessToken>
+                    <Value>
+                    <![CDATA[
+                    eyJ0eXAiOiJKV1QiLCJub25jZSI6IjlveG5HVWotNTNSaFRnUmFGeTlyNS14ZXp3MzRiZUNKQmhoem43N2s2TnMiLCJhbGciOiJSUzI1NiIsIng1dCI6IktRMnRBY3JFN2xCYVZWR0JtYzVGb2JnZEpvNCIsImtpZCI6IktRMnRBY3JFN2xCYVZWR0JtYzVGb2JnZEpvNCJ9.eyJhdWQiOiJodHRwczovL2dyYXBoLm1pY3Jvc29mdC5jb20iLCJpc3MiOiJodHRwczovL3N0cy53aW5kb3dzLm5ldC9kYTJhZmFkNS1iZGVlLTQ1ZTgtOTZhZS0wY2FiYmRhMTYxZjAvIiwiaWF0IjoxNzI0NzU4MzQ1LCJuYmYiOjE3MjQ3NTgzNDUsImV4cCI6MTcyNDc2MjI0NSwiYWlvIjoiRTJkZ1lLZ0xyM1hWTzcxcTZqT21mWGI3d2xObkF3QT0iLCJhcHBfZGlzcGxheW5hbWUiOiJOYWhvbSBUZXN0IEFQSSIsImFwcGlkIjoiNDAyY2M1YzMtZGViZS00YTQ3LWEzNzktMGQxODg2ZjBiMmEwIiwiYXBwaWRhY3IiOiIxIiwiaWRwIjoiaHR0cHM6Ly9zdHMud2luZG93cy5uZXQvZGEyYWZhZDUtYmRlZS00NWU4LTk2YWUtMGNhYmJkYTE2MWYwLyIsImlkdHlwIjoiYXBwIiwib2lkIjoiZWZiYTc1YTktNmJmMi00Zjk2LTlkMTEtNjg4ODljNTk4MGYzIiwicmgiOiIwLkFSTUExZm9xMnU2OTZFV1dyZ3lydmFGaDhBTUFBQUFBQUFBQXdBQUFBQUFBQUFEYUFBQS4iLCJyb2xlcyI6WyJGaWxlcy5SZWFkV3JpdGUuQWxsIl0sInN1YiI6ImVmYmE3NWE5LTZiZjItNGY5Ni05ZDExLTY4ODg5YzU5ODBmMyIsInRlbmFudF9yZWdpb25fc2NvcGUiOiJOQSIsInRpZCI6ImRhMmFmYWQ1LWJkZWUtNDVlOC05NmFlLTBjYWJiZGExNjFmMCIsInV0aSI6Imh3eUlnYWtfV2t5TlhZRWhQeW0xQUEiLCJ2ZXIiOiIxLjAiLCJ3aWRzIjpbIjA5OTdhMWQwLTBkMWQtNGFjYi1iNDA4LWQ1Y2E3MzEyMWU5MCJdLCJ4bXNfaWRyZWwiOiI3IDgiLCJ4bXNfdGNkdCI6MTQxNDUxNTY0Nn0.ghoJQceP6DJxjnCSsdcgLgrKKXiZ-3w-Qy-ep06BW1P5nfB-0ooac5daxMfGBpIVJ2Qo-SOAUk5bYvck8wfoTbxlI3Cc1pyP6z_1ZKR89sJBRsQnUaUSm-VwOaaIyuFcUnS2Dl06gjgDiDvLhtExY94zM9i_l7do2xA4HhuMgHwAchIai6YZQeFVNh-59haK0hBYHs_tmgqOTOK7ia9fCp9Zf9dS3r6HylrLui_ugY0PEEnDbn0AVzaOTjLeBKb7nNTDZ5f6Vkralp-Lb5ofe032lrOYq3vO-ND__b1Z4_DpZp91Mrja8dARmUghVsRwMGg7NfezjDqV9gmYs_6KJA
+                    ]]>
+                    </Value>
+                    <Timestamp>2024-08-27T11:37:25.865Z</Timestamp>
+                    <Quality>GOOD</Quality>
+                </AccessToken>
+                <ClientId>
+                    <Value>
+                    <![CDATA[
+                    402cc5c3-debe-4a47-a379-0d1886f0b2a0
+                    ]]>
+                    </Value>
+                    <Timestamp>1970-01-01T00:00:00.000Z</Timestamp>
+                    <Quality>UNKNOWN</Quality>
+                </ClientId>
+                <driveName>
+                    <Value>
+                    <![CDATA[
+                    Inlab.Testing.3@cmi-inlab.com
+                    ]]>
+                    </Value>
+                    <Timestamp>2024-08-27T11:28:21.769Z</Timestamp>
+                    <Quality>GOOD</Quality>
+                </driveName>
+                <folderName>
+                    <Value>
+                    <![CDATA[
+                    folder99
+                    ]]>
+                    </Value>
+                    <Timestamp>2024-08-27T11:25:41.170Z</Timestamp>
+                    <Quality>GOOD</Quality>
+                </folderName>
+                <SecretValue>
+                    <Value>
+                    <![CDATA[
+                    3jd8Q~nHuBfHnUqiYa8dguwqLkm2As5aznbvwaDO
+                    ]]>
+                    </Value>
+                    <Timestamp>1970-01-01T00:00:00.000Z</Timestamp>
+                    <Quality>UNKNOWN</Quality>
+                </SecretValue>
+            </ThingProperties>
+        </Thing>
+    </Things>
+</Entities>
